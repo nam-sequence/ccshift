@@ -9,6 +9,40 @@ It never reads or changes a `claude-swap` install or its `~/.claude-swap-backup`
 store. This repository also contains a native macOS menu bar app in
 [`apps/menubar`](apps/menubar).
 
+## Contents
+
+- [Installation](#installation)
+  - [From source](#from-source)
+  - [Updating](#updating)
+  - [Migrating from cc-swaper (`ccs`)](#migrating-from-cc-swaper-ccs)
+- [Usage](#usage)
+  - [Add your first account](#add-your-first-account)
+  - [Add more accounts](#add-more-accounts)
+  - [Switch accounts](#switch-accounts)
+  - [Reorder accounts](#reorder-accounts)
+  - [Automatic switching](#automatic-switching)
+  - [Live usage from Claude Code](#live-usage-from-claude-code-recommended)
+  - [Run multiple accounts at the same time](#run-multiple-accounts-at-the-same-time-session-mode)
+  - [Interactive dashboard (TUI)](#interactive-dashboard-tui)
+  - [Refresh expired tokens](#refresh-expired-tokens)
+  - [Command reference](#command-reference)
+- [Tips](#tips)
+- [How it works](#how-it-works)
+- [Data locations](#data-locations)
+- [Menu bar (macOS)](#menu-bar-macos)
+  - [Native app](#native-app)
+  - [Python status item](#python-status-item)
+- [Advanced](#advanced)
+  - [Configuration](#configuration)
+  - [Backup and migration](#backup-and-migration)
+  - [Share usage readings between machines](#share-usage-readings-between-machines)
+  - [JSON output for scripting](#json-output-for-scripting)
+  - [Add an account from a raw token or API key](#add-an-account-from-a-raw-token-or-api-key)
+- [Uninstall](#uninstall)
+- [Requirements](#requirements)
+- [Development](#development)
+- [License](#license)
+
 ## Installation
 
 ccshift is not published on PyPI. Install it from this repository:
@@ -76,7 +110,7 @@ ccshift add --login                        # Claude sign-in page
 ccshift add --login --sso --email me@company.com  # single sign-on, email pre-filled
 ```
 
-This runs Claude Code's own `claude auth login` in a separate, temporary profile, saves that account, then deletes the temporary profile. If your browser is already signed in to a different Claude account, add `--private` to open the sign-in page in a private window: the default browser when it supports one from the command line (Chrome, Brave, Edge, Firefox, Vivaldi, Opera), otherwise the first installed browser that does, or pick one with `--browser com.google.Chrome`. Safari and Arc cannot open a private window for another app; the menu bar app's own private sign-in window works with any browser.
+This runs Claude Code's own `claude auth login` in a separate, temporary profile, saves that account, then deletes the temporary profile. If your browser is already signed in to a different Claude account, add `--private` to open the sign-in page in a private window: the default browser when it supports one from the command line (Chrome, Brave, Edge, Firefox, Vivaldi, Opera, and other Chromium/Firefox-based browsers, including beta and nightly channels), otherwise the first installed browser that does, or pick one with `--browser com.google.Chrome`. Safari and Arc cannot open a private window for another app; the menu bar app's own private sign-in window works with any browser. `--private` uses macOS's private-window support; on other platforms, sign in through the browser's normal window.
 
 Or log in with the other account in Claude Code, then:
 
@@ -108,9 +142,25 @@ Not sure which one? `ccshift list` is the dashboard — every account's 5-hour a
 ccshift list
 ```
 
-Or let ccshift auto-pick by remaining quota — `ccshift switch --strategy best` (most quota left) or `--strategy next-available` (skip rate-limited accounts).
+Or let ccshift auto-pick by remaining quota: `ccshift switch --strategy best` (most quota left) or `--strategy next-available` (skip rate-limited accounts). Add `--model Fable` (or `--model Fable,Opus`, or `--model all`) to count those models' per-model weekly limits as well, so a spent model quota counts against an account even while its 5-hour and 7-day windows still have room.
 
 **Note:** You usually don't need to restart — on Linux/Windows the new account is picked up automatically, and on macOS after the Keychain cache expires. To apply it instantly, restart Claude Code or reopen the VS Code extension tab. See [Tips](#tips) for the per-platform details.
+
+### Reorder accounts
+
+An account's slot number is its place in `ccshift list` and the number `ccshift switch` takes. Exchange two accounts' slots to reorder the list:
+
+```bash
+ccshift swap 1 2
+```
+
+Or move one account to a slot: an empty slot relocates it and frees its old one, while an occupied slot swaps the two:
+
+```bash
+ccshift move 2 1
+```
+
+Aliases, backups and session history move with the account; directory mappings stay as they are.
 
 ### Automatic switching
 
@@ -123,7 +173,10 @@ ccshift auto --threshold-5h 80 --threshold-7d 95   # each window its own limit
 ccshift auto --model Fable       # also switch when the Fable weekly limit is hit
 ccshift auto --once              # single check-and-switch, for cron/scripts
 ccshift auto --dry-run           # log what it would do, never switch
+ccshift auto --interval 120      # poll every 2 minutes instead of 60s
+ccshift auto --cooldown 600      # at most one proactive switch every 10 min
 ccshift auto --strategy consume-first   # burn the soonest-resetting account first
+ccshift auto --include-api-key-accounts  # allow a managed API-key account as a last resort
 ```
 
 <details>
@@ -136,8 +189,8 @@ ccshift auto --strategy consume-first   # burn the soonest-resetting account fir
 - Usage polling is adaptive — a couple of accounts per check, busy alternates watched more closely, and exhausted ones checked about every ten minutes (or slower after 429s) — so API traffic stays flat no matter how many accounts you manage.
 - It fails safe: if a usage check errors it keeps trusting the last-known numbers while retries back off, and an expired token on an idle machine makes it hold rather than fail over (Claude Code refreshes the token on your next message).
 - An account whose refresh token has died is quarantined and reported until you either log in with it and re-run `ccshift add --slot N`, or replace its stored credentials from a known-good export — a plain `ccshift import backup.ccshift` replaces dead-token slots on its own (`--force` is still required to replace other existing accounts; note a stale export can carry an already-superseded token). API-key accounts are never rotated onto unless you pass `--include-api-key-accounts`.
-- To hold an account out of rotation yourself — a work account you don't want touched, one you're resting — run `ccshift disable <num|email>`; `ccshift enable <num|email>` puts it back. Disabled accounts are skipped by auto-switch, bare `ccshift switch`, and the `best` / `next-available` strategies, but stay fully managed and remain a valid explicit `ccshift switch <num|email>` target. They show a `(disabled)` marker in `ccshift list`, in the [TUI](#interactive-dashboard-tui), and in the [menu bar](#menu-bar-macos) — both of which also let you toggle the state in place (TUI: menu → *Disable / enable account…*; menu bar: *Disable / enable account*).
-- By default only the account-wide 5h/7d windows drive switching. If you work on one model and hit its **weekly per-model limit** first (e.g. Fable), add `--model Fable` (or `ccshift config set autoswitch.model Fable`) to fold that model's window into the decision, so it switches off an account whose model quota is spent even while its 5h/7d windows still have room.
+- To hold an account out of rotation yourself (a work account you don't want touched, one you're resting), run `ccshift disable <num|email>`; `ccshift enable <num|email>` puts it back. Disabled accounts are skipped by auto-switch, bare `ccshift switch`, and the `best` / `next-available` strategies, but stay fully managed and remain a valid explicit `ccshift switch <num|email>` target. They show a `(disabled)` marker in `ccshift list` and in the [TUI](#interactive-dashboard-tui), and *Not in auto-switch* in the [menu bar](#menu-bar-macos). Both GUI surfaces also toggle the state in place (TUI: menu → *Disable / enable account…*; menu bar: *Use for Automatic Switching* in an account's context menu or in Settings › Accounts).
+- By default only the account-wide 5h/7d windows drive switching. If you work on one model and hit its **weekly per-model limit** first (e.g. Fable), add `--model Fable` (or `--model all`, or `ccshift config set autoswitch.model Fable`) to fold that model's window into the decision, so it switches off an account whose model quota is spent even while its 5h/7d windows still have room.
   - **Model names** are Anthropic's own per-model `display_name`s, matched case-insensitively. The exact strings for your accounts are the per-model rows in `ccshift list` (e.g. a line reading `Fable: 100%`).
 
 #### Live usage from Claude Code (recommended)
@@ -153,6 +206,7 @@ ccshift hooks uninstall    # restores your original statusLine command
 - The status line keeps rendering exactly as before; ccshift only reads the `rate_limits` it is given. Each reading is matched to an account by its window reset times (never credited to "whichever is active", because a running session can still hold the account you just left), and a stale re-send from an idle session is ignored.
 - If you have no `statusLine` configured, only the hook is installed — adding a status line would take Claude Code's footer hints away. Add any one-line command and re-run `ccshift hooks install`.
 - With a live feed the active account is judged on a reading seconds old instead of minutes; the endpoint is still polled as the ground truth for usage the feed can't see (other clients, other machines).
+- A polled reading supersedes an older live one, and a live window past its reset is dropped, so an early provider reset cannot leave a stale high number on screen or make auto-switch skip an account that is usable again.
 - Without it, an aging reading is advanced by the burn rate learned from the readings before it, and an active account stuck behind a 429 near its threshold is no longer trusted as frozen — it counts as unknown, which fails over to an account with fresh data.
 - The hook fires only for `rate_limit` stops, debounced across simultaneous agents, and ignores a report that arrives right after ccshift's own switch (it is about the account you just left).
 
@@ -228,9 +282,10 @@ ccshift add
 
 This will update the stored credentials without creating a duplicate.
 
-### Other commands
+### Command reference
 
 ```bash
+ccshift --version                 # Show the installed version
 ccshift run 2                     # Run an account in this terminal only (session mode)
 ccshift auto                      # Auto-switch when nearing rate limits (see above)
 ccshift config                    # Show or edit settings (see Configuration below)
@@ -242,17 +297,28 @@ ccshift status                    # Show current account
 ccshift add --slot 3              # Add account to a specific slot (prompts before overwrite)
 ccshift add --alias dev           # Add account and give it a short alias
 ccshift add --login [--sso] [--private]  # Sign in with the browser and add that account
+ccshift add-token                 # Register a setup-token or API key (prompts securely)
 ccshift remove 2                  # Remove an account (asks first; --yes skips the prompt)
 ccshift disable 2                 # Hold an account out of auto-rotation (keeps its login)
 ccshift enable 2                  # Return a disabled account to rotation
 ccshift alias 2 dev               # Give an account a short alias (usable anywhere NUM|EMAIL is)
 ccshift alias 2 --unset           # Remove an account's alias
 ccshift alias                     # List all aliases
+ccshift swap 1 2                  # Exchange two accounts' slot numbers
 ccshift move 2 1                  # Assign an account to a slot (relocates to an empty slot, swaps if taken)
+ccshift map 2 ~/work              # Bind a directory to account 2 (see session mode)
+ccshift unmap ~/work              # Remove a directory binding
+ccshift hooks install             # Wire the live usage feed and rate-limit hook into Claude Code
+ccshift hooks status              # Show whether the feed and hook are installed
+ccshift hooks uninstall           # Remove them and restore your statusLine command
 ccshift unclaimed                 # List stashed credential entries (slot + why they were stashed)
 ccshift unclaimed --purge ID      # Drop one (deletes its bytes; recover with /login + `ccshift add`)
+ccshift export backup.ccshift     # Export accounts to a file
+ccshift import backup.ccshift     # Import accounts from a file
+ccshift import-usage - --hold 600 # Adopt another machine's usage readings (see below)
 ccshift tui                       # Interactive dashboard (also: bare `ccshift`)
 ccshift watch                     # Dashboard, opened on the live watch page
+ccshift menubar                   # Python status item, macOS (needs the menubar extra)
 ccshift upgrade                   # Upgrade ccshift to the latest version
 ccshift purge                     # Remove all ccshift data
 ```
@@ -296,15 +362,29 @@ account's 5-hour and 7-day usage, switches with a click, and can run
 `ccshift auto --once` every minute. It calls the installed `ccshift` command
 (`~/.local/bin/ccshift` by default) and never reads credentials itself.
 
+Download `ccshift-x.y.z-macos.zip` from the [latest
+release](https://github.com/nam-sequence/ccshift/releases/latest), unzip it,
+quit the ccshift menu bar app if it is running, remove the old
+`~/Applications/ccshift.app`, and move the new one there. The app is ad-hoc
+signed and not notarized. On macOS 14, Control-click the app and choose *Open*;
+on macOS 15 and later, try to open it once, then choose *Open Anyway* in System Settings ›
+Privacy & Security. You can also clear the quarantine flag with
+`xattr -dr com.apple.quarantine ~/Applications/ccshift.app`. The app checks for
+its own updates (Settings › General › Updates); `ccshift upgrade` updates
+the `ccshift` command it calls.
+
+To build it yourself:
+
 ```bash
-swift test --package-path apps/menubar
 bash apps/menubar/scripts/build-app.sh
+# Quit the ccshift menu bar app first; remove the old bundle before installing.
+rm -rf ~/Applications/ccshift.app
 ditto apps/menubar/dist/ccshift.app ~/Applications/ccshift.app
 ```
 
 Up to 1.2 the app was called `CcsMenuBar.app`. After installing `ccshift.app`,
 quit the old app and delete `~/Applications/CcsMenuBar.app`; the new app picks
-up its settings on first launch, but *Launch at login* has to be turned on again.
+up its settings on first launch, but *Launch at Login* has to be turned on again.
 
 Run only one automatic switcher at a time: the native app's auto-switch,
 `ccshift auto`, or the Python status item below.
@@ -348,7 +428,7 @@ Tool preferences live in `settings.json` in the backup root; `ccshift config` re
 ccshift config                              # list effective settings ("(default)" = not set)
 ccshift config get autoswitch.threshold
 ccshift config set autoswitch.threshold 80  # validated: rejects out-of-range values loudly
-ccshift config set autoswitch.model Fable   # per-model switching (see "auto"); Fable,Opus for several
+ccshift config set autoswitch.model Fable   # per-model switching (see "auto"); e.g. Fable,Opus, or all
 ccshift config unset autoswitch.threshold   # back to the default
 ccshift config path                         # where settings.json lives
 ```
@@ -464,15 +544,23 @@ ccshift purge
 uv tool uninstall ccshift
 ```
 
-For the native menu bar app, turn off *Launch at login* in its Settings, quit
+For the native menu bar app, turn off *Launch at Login* in its Settings, quit
 it, and delete `~/Applications/ccshift.app`.
 
 ## Requirements
 
 - Python 3.12+ and [uv](https://docs.astral.sh/uv/)
 - Claude Code installed and logged in
-- For the native menu bar app: macOS 14+ and Xcode with Swift 6.2 (the CLI does
-  not need them)
+- For the native menu bar app: macOS 14+. Building it from source additionally
+  needs Xcode with Swift 6.2; the CLI and the downloaded app do not.
+
+## Development
+
+```bash
+uv sync                                 # install Python dependencies
+uv run pytest                           # Python test suite
+swift test --package-path apps/menubar  # macOS app tests (macOS 14+ with Xcode)
+```
 
 ## License
 

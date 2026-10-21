@@ -1,25 +1,100 @@
 # ccshift Menu Bar
 
-Native macOS 14+ menu bar app for viewing account usage and switching the Claude Code account managed by `ccshift`.
+Native macOS 14+ menu bar app for viewing account usage and switching the
+Claude Code account managed by `ccshift`. It shows every account's 5-hour and
+7-day usage, switches with a click, and can run `ccshift auto --once` every
+minute. It calls the installed `ccshift` command and never reads credentials
+itself.
+
+## Requirements
+
+- macOS 14 or later.
+- `ccshift` installed and logged in. The app finds it at `~/.local/bin/ccshift`,
+  Homebrew's standard bin directories, or an absolute entry from `PATH`; use
+  **Choose ccshift executable…** to select another install.
+- Version 1 JSON output from `ccshift`. The full feature set needs ccshift
+  1.4.1 or later; see [Version support](#version-support).
+- Xcode with Swift 6.2 only when building from source.
+
+## Install
+
+Download `ccshift-x.y.z-macos.zip` from the [latest
+release](https://github.com/nam-sequence/ccshift/releases/latest), unzip it,
+quit the ccshift menu bar app if it is running, remove the old copy, and install
+the new one:
+
+```sh
+unzip ccshift-x.y.z-macos.zip
+rm -rf ~/Applications/ccshift.app
+ditto ccshift.app ~/Applications/ccshift.app
+```
+
+The app is ad-hoc signed and not notarized. On macOS 14, Control-click the app
+and choose **Open**. On macOS 15 and later, try to open it once, then choose **Open
+Anyway** in System Settings › Privacy & Security. Or clear the quarantine flag:
+
+```sh
+xattr -dr com.apple.quarantine ~/Applications/ccshift.app
+```
+
+Up to 1.2 the app was `CcsMenuBar.app` (`com.namsequence.ccswaper.menubar`).
+On its first launch `ccshift.app` copies that app's settings once (automatic
+switching, threshold, update choices, the chosen `ccshift`, the sign-in window
+choice); Launch at Login is registered per app, so it has to be turned on again.
 
 ## Build and test
 
 ```sh
 swift test --package-path apps/menubar
 bash apps/menubar/scripts/build-app.sh
+# Quit the app first; remove the old bundle before installing the new one.
+rm -rf ~/Applications/ccshift.app
+ditto apps/menubar/dist/ccshift.app ~/Applications/ccshift.app
 ```
 
 The build script creates `apps/menubar/dist/ccshift.app` (bundle identifier `com.namsequence.ccshift.menubar`), sets `LSUIElement` so the app stays out of the Dock, and ad-hoc signs the local bundle. It replaces only a prior app with the same bundle identifier. `CCSHIFT_APP_VERSION` can override the bundle version (strict `MAJOR.MINOR.PATCH`; defaults to the version in the repository's `pyproject.toml`), and `CCSHIFT_APP_OUTPUT` can select an absolute staging path ending in `ccshift.app`. A release attaches the app as `ccshift-x.y.z-macos.zip`, the name the update check looks for.
 
-Up to 1.2 the app was `CcsMenuBar.app` (`com.namsequence.ccswaper.menubar`). On its first launch `ccshift.app` copies that app's settings once (automatic switching, threshold, update choices, the chosen `ccshift`, the sign-in window choice); Launch at Login is registered per app, so it has to be turned on again.
-
 The app icon is an Icon Composer file (`Resources/AppIcon.icon`). The build script compiles it with Xcode's `actool` into `Assets.car`, which macOS 26 renders with Liquid Glass, plus an `AppIcon.icns` fallback for macOS 14 and 15. Without Xcode the app is built without an icon.
+
+## Using the app
+
+Click the menu bar icon for the account list. The active account is marked, and
+each account offers **Switch to This Account**, **Use for Automatic Switching**,
+and **Remove Account…** in its context menu. **Add Account…**, **ccshift
+Settings…** (⌘,) and **Quit ccshift** are at the bottom.
+
+Settings has three tabs:
+
+- **Accounts**: add an account (browser sign-in or the current login), remove
+  accounts, and choose which accounts automatic switching may use.
+- **General**: launch at login, **Show usage in the menu bar**, update checks,
+  and the `ccshift` executable.
+- **Automatic Switching**: on/off, the separate **5-Hour Limit** and **7-Day
+  Limit** switch points, and dry run.
+
+Automatic switching is off until you turn it on. It runs `ccshift auto --once
+--json` every minute, so `ccshift` remains the policy owner, and each check is a
+separate run.
+
+## Version support
+
+| Feature | Needs ccshift |
+| --- | --- |
+| Account list and switching | 1.0.0 |
+| Saving the current login, adding and removing accounts | 1.1.0 |
+| Disable/enable in automatic switching | 1.2.0 |
+| Live usage from the local store (`list --json --cached`) | 1.3.1 |
+| Separate 5-hour and 7-day switch points | 1.4.0 |
+| Refresh button fetches every account (`list --json --refresh`) | 1.4.1 |
+
+Older versions still list and switch accounts; they lack the features whose rows
+they predate.
 
 ## CLI connection
 
 The app runs the installed absolute `ccshift` launcher with an explicit argument vector and no shell. It preserves a stable launcher symlink, walks every resolved parent directory to `/` and checks ownership, POSIX write permissions, and ACL write/delete grants before every call, and uses a dedicated process group so timed-out checks stop their child processes. Only `HOME`, `USER`, `TMPDIR`, the locale variables and a fixed `PATH` are passed to `ccshift`; credential environment variables are omitted. The app searches `~/.local/bin/ccshift`, Homebrew's standard bin directories, and absolute entries from `PATH`. Use **Choose ccshift executable…** (or **Choose…** in the Settings window) to select another installed `ccshift`.
 
-The menu lists the accounts from `ccshift list --json`. Each Switch button runs `ccshift switch <number> --json`. **Use for Automatic Switching**, a checkmark in each account's context menu and in its actions menu in Settings › Accounts (like Auto-Join for a Wi-Fi network), runs `ccshift disable <email> --json` or `ccshift enable <email> --json` (ccshift 1.2.0 or later): an account with it off is marked *Not in auto-switch* and is never picked by automatic switching or rotation, but can still be switched to by hand. Opening or refreshing the app never changes the active account by itself.
+The menu lists the accounts from `ccshift list --json`. Each **Switch to This Account** button runs `ccshift switch <number> --json`. **Use for Automatic Switching**, a checkmark in each account's context menu and in its actions menu in Settings › Accounts (like Auto-Join for a Wi-Fi network), runs `ccshift disable <email> --json` or `ccshift enable <email> --json` (ccshift 1.2.0 or later): an account with it off is marked *Not in auto-switch* and is never picked by automatic switching or rotation, but can still be switched to by hand. Opening or refreshing the app never changes the active account by itself.
 
 **Adding and removing accounts** happens in the Settings window's **Accounts** tab, which **Add Account…** in the menu and **Remove Account…** in an account's context menu also open. The Add Account sheet offers two ways. **Sign In with Browser** (optionally with an email and single sign-on) runs `ccshift add --login --json`, which runs Claude Code's own `claude auth login` in a separate temporary profile, so the account Claude Code is using does not change; the sheet waits up to 15 minutes and **Stop Signing In** cancels it. **Open in** chooses where the Claude sign-in page appears: the **Private Sign-In Window** (default) is an ephemeral `ASWebAuthenticationSession` that shares no cookies with any browser and works whatever the default browser is, Safari and Arc included (ccshift hands it the page's address through a private temporary file, `--handoff-file`, and only Claude's own sign-in hosts are opened; closing the window stops the sign-in); an installed browser's private window (`--private --browser=<bundle id>`, for Chrome, Brave, Edge, Firefox and others that support it); or the default browser's normal window. **Current Login** saves the account Claude Code is signed in to (`ccshift status --json`, then `ccshift add --json [--alias NAME]`). Removing asks for confirmation in the app, then runs `ccshift remove <email> --yes --json` (by account number, after re-reading the list, when several accounts share the email). These commands need ccshift 1.1.0 or later; with an older `ccshift` the app asks you to run `ccshift upgrade`.
 
@@ -27,8 +102,14 @@ The menu lists the accounts from `ccshift list --json`. Each Switch button runs 
 
 **Update reminders.** The app checks the latest ccshift release on GitHub (`api.github.com/repos/nam-sequence/ccshift/releases/latest`, unauthenticated) a few seconds after launch and then once a day, unless **Check for Updates Automatically** is turned off in Settings › General. When a newer version is out, the menu shows **ccshift x.y.z Is Available…**, Settings › General › Updates offers **Download…** (the release's `ccshift-x.y.z-macos.zip`), **Release Notes** and **Skip This Version**, and macOS shows one notification per version (permission is asked the first time an update is found; clicking it opens the release). The same section shows the command line tool's version (`ccshift --version`) and suggests `ccshift upgrade` when it is older than the app or the latest release.
 
-**Launch at login** is off until enabled in the Settings window (**ccshift Settings…** in the menu, or ⌘,) and uses macOS `SMAppService`. If macOS requires approval, the app offers a direct link to Login Items. The app never registers itself during startup.
+**Launch at Login** is off until enabled in the Settings window (**ccshift Settings…** in the menu, or ⌘,) and uses macOS `SMAppService`. If macOS requires approval, the app offers a direct link to Login Items. The app never registers itself during startup.
 
 **Automatic account switching** is also off by default and persisted only after the user turns it on. It runs `ccshift auto --once --json` serially every minute, with a switch point for each window (**5-Hour Limit** and **7-Day Limit**, set apart in Settings › Automatic Switching) and a dry-run control in the Settings window (the menu keeps a quick on/off toggle), and stays paused until at least one account exists (while the list is empty it is re-read every minute). `ccshift` remains the policy owner. Dry run is an explicit preview; it does not switch accounts. Run only one automatic switcher at a time (this app, `ccshift auto`, or `ccshift menubar`). Each check is a separate `ccshift auto --once` run, so the unhealthy-account failover of the long-running `ccshift auto` loop (switching away after several ticks with unreadable usage) does not apply here; switches at or near the limit do.
 
 The app requires version 1 JSON for list and switch responses and for every auto-switch event. A future schema version, a usage error without JSON output, or a timed-out command is shown as an error. Credentials and Keychain data are not read by the Swift app; authentication and account selection remain with `ccshift`.
+
+## Uninstall
+
+Turn off **Launch at Login** in Settings › General, quit the ccshift menu bar
+app, and delete `~/Applications/ccshift.app`. To remove the command line tool
+and its data, follow the main README's Uninstall section.
