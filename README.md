@@ -10,7 +10,6 @@ This repository also contains a native macOS menu bar app in
 - [Installation](#installation)
   - [From source](#from-source)
   - [Updating](#updating)
-  - [Migrating from cc-swaper (`ccs`)](#migrating-from-cc-swaper-ccs)
 - [Usage](#usage)
   - [Add your first account](#add-your-first-account)
   - [Add more accounts](#add-more-accounts)
@@ -63,29 +62,6 @@ ccshift upgrade          # auto-detects the uv tool install and upgrades it
 # or run uv directly:
 uv tool upgrade ccshift
 ```
-
-### Migrating from cc-swaper (`ccs`)
-
-Earlier versions of this repository shipped `cc-swaper` (the `ccs` command,
-its profiles and a zsh `claude()` wrapper). ccshift does not read any of that
-data. To remove it, quit every Claude Code session started through `ccs`, open
-a new Terminal and run from a checkout of this repository
-(`git clone https://github.com/nam-sequence/ccshift.git && cd ccshift`):
-
-```bash
-bash scripts/remove-cc-swaper.sh           # dry run: lists what would be removed
-bash scripts/remove-cc-swaper.sh --apply   # remove it
-```
-
-The script refuses to delete anything while a process still uses the old data
-and lists those processes. Quit them, or add `--kill-running` to stop them.
-
-This removes the ccs profiles and their Keychain logins, the zsh wrapper
-(`~/.zshrc` is backed up first), the `cc-swaper` uv tool, the old menu bar app
-and a leftover legacy backup store. Your default Claude Code login
-and history (`~/.claude`) are kept. Add `--keep-history-backup` to keep the
-session-history copy that ccs saved under `~/.config/cc-swaper/session-backups`.
-Then add your accounts again with `ccshift add`.
 
 ## Usage
 
