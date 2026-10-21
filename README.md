@@ -2,11 +2,7 @@
 
 Multi-account switcher for Claude Code. Easily switch between multiple Claude accounts without logging out, or let it switch for you before you hit a rate limit. Track usage for every account in a live dashboard, and run accounts in parallel. Works with both the Claude Code CLI and the VS Code extension.
 
-ccshift is a fork of [realiti4/claude-swap](https://github.com/realiti4/claude-swap)
-(commit `3a4e5c1`, v0.27.0b1), renamed end to end: the command, the Python
-package, the data directory (`~/.ccshift`) and the Keychain service (`ccshift`).
-It never reads or changes a `claude-swap` install or its `~/.claude-swap-backup`
-store. This repository also contains a native macOS menu bar app in
+This repository also contains a native macOS menu bar app in
 [`apps/menubar`](apps/menubar).
 
 ## Contents
@@ -14,7 +10,6 @@ store. This repository also contains a native macOS menu bar app in
 - [Installation](#installation)
   - [From source](#from-source)
   - [Updating](#updating)
-  - [Migrating from cc-swaper (`ccs`)](#migrating-from-cc-swaper-ccs)
 - [Usage](#usage)
   - [Add your first account](#add-your-first-account)
   - [Add more accounts](#add-more-accounts)
@@ -67,29 +62,6 @@ ccshift upgrade          # auto-detects the uv tool install and upgrades it
 # or run uv directly:
 uv tool upgrade ccshift
 ```
-
-### Migrating from cc-swaper (`ccs`)
-
-Earlier versions of this repository shipped `cc-swaper` (the `ccs` command,
-its profiles and a zsh `claude()` wrapper). ccshift does not read any of that
-data. To remove it, quit every Claude Code session started through `ccs`, open
-a new Terminal and run from a checkout of this repository
-(`git clone https://github.com/nam-sequence/ccshift.git && cd ccshift`):
-
-```bash
-bash scripts/remove-cc-swaper.sh           # dry run: lists what would be removed
-bash scripts/remove-cc-swaper.sh --apply   # remove it
-```
-
-The script refuses to delete anything while a process still uses the old data
-and lists those processes. Quit them, or add `--kill-running` to stop them.
-
-This removes the ccs profiles and their Keychain logins, the zsh wrapper
-(`~/.zshrc` is backed up first), the `cc-swaper` uv tool, the old menu bar app
-and a leftover `~/.claude-swap-backup` store. Your default Claude Code login
-and history (`~/.claude`) are kept. Add `--keep-history-backup` to keep the
-session-history copy that ccs saved under `~/.config/cc-swaper/session-backups`.
-Then add your accounts again with `ccshift add`.
 
 ## Usage
 
@@ -564,6 +536,4 @@ swift test --package-path apps/menubar  # macOS app tests (macOS 14+ with Xcode)
 
 ## License
 
-MIT. ccshift is derived from [realiti4/claude-swap](https://github.com/realiti4/claude-swap),
-Copyright (c) 2026 Onur Cetinkol; see [LICENSE](LICENSE) and
-[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md).
+MIT. See [LICENSE](LICENSE).

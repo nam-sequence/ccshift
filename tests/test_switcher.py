@@ -3725,7 +3725,7 @@ class TestPerformSwitchPostDisplay:
         config_path = temp_home / ".claude.json"
         config_path.write_text(json.dumps({
             "oauthAccount": {
-                "emailAddress": "realiti44@gmail.com",
+                "emailAddress": "legacy4@example.com",
                 "accountUuid": "",
                 "organizationUuid": None,
                 "organizationName": None,
@@ -3739,14 +3739,14 @@ class TestPerformSwitchPostDisplay:
             "sequence": [3, 4],
             "accounts": {
                 "3": {
-                    "email": "onurcetinkol@gmail.com",
+                    "email": "legacy3@example.com",
                     "uuid": "",
                     "organizationUuid": "",
                     "organizationName": "",
                     "added": "2024-01-01T00:00:00Z",
                 },
                 "4": {
-                    "email": "realiti44@gmail.com",
+                    "email": "legacy4@example.com",
                     "uuid": "",
                     "organizationUuid": "",
                     "organizationName": "",
@@ -3762,24 +3762,24 @@ class TestPerformSwitchPostDisplay:
         })
         live_creds = json.dumps({
             "claudeAiOauth": {
-                "accessToken": "realiti-live-token",
-                "refreshToken": "realiti-live-refresh",
+                "accessToken": "legacy-live-token",
+                "refreshToken": "legacy-live-refresh",
             }
         })
         creds_store = {
-            ("3", "onurcetinkol@gmail.com"): target_creds,
-            ("4", "realiti44@gmail.com"): "old-realiti-backup",
+            ("3", "legacy3@example.com"): target_creds,
+            ("4", "legacy4@example.com"): "old-legacy-backup",
         }
         configs_store = {
-            ("3", "onurcetinkol@gmail.com"): json.dumps({
+            ("3", "legacy3@example.com"): json.dumps({
                 "oauthAccount": {
-                    "emailAddress": "onurcetinkol@gmail.com",
+                    "emailAddress": "legacy3@example.com",
                     "accountUuid": "",
                     "organizationUuid": None,
                     "organizationName": None,
                 }
             }),
-            ("4", "realiti44@gmail.com"): "old-realiti-config",
+            ("4", "legacy4@example.com"): "old-legacy-config",
         }
         live_state = {"creds": live_creds}
         patches = self._install_store_patches(
@@ -3795,7 +3795,7 @@ class TestPerformSwitchPostDisplay:
                 "ccshift.oauth.fetch_oauth_profile",
                 return_value={
                     "uuid": "",
-                    "email": "realiti44@gmail.com",
+                    "email": "legacy4@example.com",
                     "organizationUuid": "",
                 },
             ):
@@ -3804,8 +3804,8 @@ class TestPerformSwitchPostDisplay:
             for p in patches:
                 p.stop()
 
-        assert creds_store[("4", "realiti44@gmail.com")] == live_creds
-        assert ("3", "realiti44@gmail.com") not in creds_store
+        assert creds_store[("4", "legacy4@example.com")] == live_creds
+        assert ("3", "legacy4@example.com") not in creds_store
         assert json.loads(live_state["creds"])["claudeAiOauth"]["accessToken"] == (
             "target-token"
         )

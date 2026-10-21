@@ -13,7 +13,7 @@ dependencies = [
     "textual>=8.2.8,<9",
     "truststore>=0.10.4",
 ]
-authors = [{name = "Onur Cetinkol", email = "onurcetinkol@gmail.com"}]
+authors = [{name = "Nam Tran"}]
 maintainers = [{name = "Nam Tran"}]
 license = {text = "MIT"}
 keywords = ["claude", "claude-code", "account-switcher", "cli"]
@@ -39,7 +39,6 @@ menubar = ["rumps>=0.4.0"]
 Homepage = "https://github.com/nam-sequence/ccshift"
 Repository = "https://github.com/nam-sequence/ccshift"
 Issues = "https://github.com/nam-sequence/ccshift/issues"
-Upstream = "https://github.com/realiti4/claude-swap"
 
 [project.scripts]
 ccshift = "ccshift.cli:main"
