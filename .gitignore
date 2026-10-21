@@ -1,14 +1,37 @@
+# Python
 __pycache__/
 *.py[cod]
 *.egg-info/
-.pytest_cache/
 .venv/
-.build/
+.tox/
+.nox/
+
+# Build output
 build/
 dist/
+.build/
+
+# Test, lint and coverage
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
 .coverage*
+htmlcov/
+
+# Environment and logs
 .env
 .env.*
+.envrc
 *.log
 *.jsonl
 *.credentials.json
+
+# OS and editor metadata
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+
+# Local agent task output
+.pi/tasks/
